@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GDG Doorprize Picker 🎉</title>
+  <meta name="description" content="GDG event doorprize winner picker — randomly selects 3 winners from attendee list with history and name management." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* iOS palette */
+      --ios-blue:   #007AFF;
+      --ios-purple: #AF52DE;
+      --ios-pink:   #FF2D55;
+      --ios-teal:   #5AC8FA;
+      --ios-indigo: #5856D6;
+      --ios-green:  #34C759;
+      --ios-orange: #FF9500;
+      --ios-red:    #FF3B30;
+      --gold:  #FFD60A;
+      --silver:#C7C7CC;
+      --bronze:#FF9500;
+
+      /* Glass surfaces */
+      --glass-bg:       rgba(255,255,255,0.14);
+      --glass-bg-deep:  rgba(255,255,255,0.08);
+      --glass-border:   rgba(255,255,255,0.28);
+      --glass-border-s: rgba(255,255,255,0.14);
+      --glass-shadow:   0 8px 32px rgba(0,0,0,0.18), 0 1.5px 6px rgba(0,0,0,0.10);
+
+      --text:       rgba(255,255,255,0.97);
+      --text-sec:   rgba(255,255,255,0.60);
+      --text-ter:   rgba(255,255,255,0.36);
+
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Animated iOS-style wallpaper ── */
+    #wallpaper {
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 15%  20%, #5E5CE6 0%, transparent 55%),
+        radial-gradient(ellipse 60% 70% at 85%  10%, #BF5AF2 0%, transparent 50%),
+        radial-gradient(ellipse 70% 50% at 50%  90%, #0A84FF 0%, transparent 55%),
+        radial-gradient(ellipse 55% 60% at 90%  75%, #FF375F 0%, transparent 45%),
+        radial-gradient(ellipse 50% 40% at 10%  80%, #30D158 0%, transparent 45%),
+        #0f0c29;
+      background-size: 200% 200%;
+      animation: wallShift 14s ease-in-out infinite alternate;
+    }
+    @keyframes wallShift {
+      0%   { background-position: 0% 0%; }
+      33%  { background-position: 60% 30%; }
+      66%  { background-position: 30% 80%; }
+      100% { background-position: 100% 100%; }
+    }
+
+    /* Noise texture overlay for depth */
+    #wallpaper::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.04;
+      pointer-events: none;
+    }
+
+    /* ── Layout ── */
+    .wrapper {
+      position: relative; z-index: 1;
+      max-width: 1140px; margin: 0 auto;
+      padding: 32px 20px 72px;
+    }
+
+    /* ── Header ── */
+    header { text-align: center; padding: 48px 0 40px; }
+
+    .ios-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      border-radius: 100px; padding: 7px 20px;
+      font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85);
+      letter-spacing: 0.3px; margin-bottom: 22px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 5.5vw, 3.8rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.07;
+      margin-bottom: 14px;
+      background: linear-gradient(145deg, #fff 0%, rgba(255,255,255,0.75) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      filter: drop-shadow(0 2px 12px rgba(0,0,0,0.25));
+    }
+
+    .subtitle {
+      color: var(--text-sec);
+      font-size: 15px; font-weight: 400; letter-spacing: -0.1px;
+    }
+
+    #participants-count {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 14px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border-s);
+      border-radius: 100px; padding: 5px 16px;
+      font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.8);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    #participants-count::before { content: '👥'; font-size: 14px; }
+
+    /* ── Grid ── */
+    .grid { display: grid; gap: 18px; }
+    @media (min-width: 768px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+
+    /* ── Glass Card ── */
+    .card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(28px) saturate(200%);
+      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      padding: 26px 22px;
+      box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.22);
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1),
+                  box-shadow 0.3s ease;
+      position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.55) 50%, transparent 95%);
+    }
+    .card:hover {
+      transform: translateY(-3px) scale(1.005);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12),
+                  inset 0 1px 0 rgba(255,255,255,0.28);
+    }
+
+    .card-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 1.8px;
+      color: var(--text-sec); text-transform: uppercase; margin-bottom: 18px;
+    }
+
+    /* ── Winner Slots ── */
+    .winner-slot {
+      background: var(--glass-bg-deep);
+      border: 1px solid var(--glass-border-s);
+      border-radius: var(--radius-lg);
+      padding: 16px 14px; margin-bottom: 11px;
+      min-height: 70px;
+      display: flex; align-items: center; gap: 14px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: border-color 0.4s ease, box-shadow 0.4s ease, background 0.4s ease;
+    }
+
+    .winner-slot.revealed {
+      background: rgba(255,214,10,0.08);
+      border-color: rgba(255,214,10,0.55);
+      box-shadow: 0 0 24px rgba(255,214,10,0.18), inset 0 0 18px rgba(255,214,10,0.05);
+      animation: springPop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    .winner-slot:nth-child(2).revealed {
+      background: rgba(199,199,204,0.08);
+      border-color: rgba(199,199,204,0.5);
+      box-shadow: 0 0 24px rgba(199,199,204,0.15), inset 0 0 18px rgba(199,199,204,0.04);
+    }
+    .winner-slot:nth-child(3).revealed {
+      background: rgba(255,149,0,0.08);
+      border-color: rgba(255,149,0,0.5);
+      box-shadow: 0 0 24px rgba(255,149,0,0.15), inset 0 0 18px rgba(255,149,0,0.04);
+    }
+
+    @keyframes springPop {
+      0%   { transform: scale(0.88) translateY(6px); opacity: 0; }
+      60%  { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .medal {
+      width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px; font-weight: 800;
+      background: rgba(255,214,10,0.15);
+      color: var(--gold);
+      border: 1.5px solid rgba(255,214,10,0.35);
+      box-shadow: 0 2px 10px rgba(255,214,10,0.2);
+    }
+    .winner-slot:nth-child(2) .medal {
+      background: rgba(199,199,204,0.15); color: var(--silver);
+      border-color: rgba(199,199,204,0.35); box-shadow: 0 2px 10px rgba(199,199,204,0.15);
+    }
+    .winner-slot:nth-child(3) .medal {
+      background: rgba(255,149,0,0.15); color: var(--bronze);
+      border-color: rgba(255,149,0,0.35); box-shadow: 0 2px 10px rgba(255,149,0,0.2);
+    }
+
+    .winner-name {
+      font-size: 15px; font-weight: 700; color: var(--text);
+      letter-spacing: -0.2px;
+    }
+    .winner-placeholder {
+      font-size: 14px; font-weight: 400; color: var(--text-ter);
+      font-style: italic;
+    }
+
+    /* ── Primary button (Draw) ── */
+    #spin-btn {
+      width: 100%; padding: 15px 20px; margin-top: 10px;
+      background: linear-gradient(135deg, var(--ios-blue) 0%, var(--ios-indigo) 100%);
+      border: none; border-radius: var(--radius-md);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 15px; font-weight: 700; color: #fff;
+      cursor: pointer; letter-spacing: -0.2px;
+      position: relative; overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,122,255,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1),
+                  box-shadow 0.25s ease, opacity 0.2s;
+    }
+    #spin-btn .btn-shimmer {
+      position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%);
+      transform: translateX(-100%);
+      animation: shimmer 2.8s infinite;
+    }
+    @keyframes shimmer { to { transform: translateX(200%); } }
+    #spin-btn:hover:not(:disabled) {
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: 0 8px 28px rgba(0,122,255,0.55), inset 0 1px 0 rgba(255,255,255,0.3);
+    }
+    #spin-btn:active:not(:disabled) { transform: scale(0.96); }
+    #spin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Remove-winners button ── */
+    #remove-winners-btn {
+      width: 100%; padding: 13px 20px; margin-top: 10px;
+      background: rgba(255,59,48,0.10);
+      border: 1px solid rgba(255,59,48,0.28);
+      border-radius: var(--radius-md);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px; font-weight: 600; color: #FF6B6B;
+      cursor: pointer; letter-spacing: -0.1px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: background 0.2s, border-color 0.2s,
+                  transform 0.2s cubic-bezier(0.34,1.56,0.64,1), color 0.2s;
+    }
+    #remove-winners-btn:hover:not(:disabled) {
+      background: rgba(255,59,48,0.20);
+      border-color: rgba(255,59,48,0.5);
+      transform: translateY(-1px);
+    }
+    #remove-winners-btn:active:not(:disabled) { transform: scale(0.96); }
+    #remove-winners-btn:disabled { opacity: 0.32; cursor: not-allowed; }
+
+    /* ── Search ── */
+    .search-wrap {
+      position: relative; margin-bottom: 12px;
+    }
+    .search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 14px; pointer-events: none; opacity: 0.5;
+    }
+    .search-box {
+      width: 100%; padding: 10px 14px 10px 36px;
+      background: var(--glass-bg-deep);
+      border: 1px solid var(--glass-border-s);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 14px; font-weight: 400;
+      outline: none; backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+    }
+    .search-box:focus {
+      border-color: rgba(0,122,255,0.6);
+      background: rgba(255,255,255,0.12);
+      box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+    }
+    .search-box::placeholder { color: var(--text-ter); }
+
+    /* ── Participants list ── */
+    .participants-list {
+      max-height: 360px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 5px;
+      padding-right: 4px;
+    }
+    .participants-list::-webkit-scrollbar { width: 3px; }
+    .participants-list::-webkit-scrollbar-track { background: transparent; }
+    .participants-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2); border-radius: 6px;
+    }
+
+    .participant-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--glass-bg-deep);
+      border: 1px solid var(--glass-border-s);
+      border-radius: var(--radius-sm); padding: 9px 11px;
+      transition: border-color 0.2s, background 0.2s, transform 0.2s;
+    }
+    .participant-item:hover {
+      border-color: rgba(255,255,255,0.28);
+      background: rgba(255,255,255,0.12);
+      transform: translateX(2px);
+    }
+    .participant-name {
+      font-size: 13px; font-weight: 500; color: var(--text);
+      letter-spacing: -0.1px;
+    }
+    .remove-btn {
+      width: 24px; height: 24px; border-radius: 50%; border: none;
+      background: rgba(255,59,48,0.12); color: rgba(255,100,90,0.9);
+      cursor: pointer; font-size: 12px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .remove-btn:hover {
+      background: rgba(255,59,48,0.28);
+      transform: scale(1.15) rotate(90deg);
+    }
+
+    /* ── History ── */
+    .history-list {
+      max-height: 330px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 9px;
+      padding-right: 4px;
+    }
+    .history-list::-webkit-scrollbar { width: 3px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2); border-radius: 6px;
+    }
+
+    .history-entry {
+      background: var(--glass-bg-deep);
+      border: 1px solid var(--glass-border-s);
+      border-radius: var(--radius-md); padding: 13px 14px;
+      animation: entryIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    @keyframes entryIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    .history-meta {
+      font-size: 11px; color: var(--text-ter); margin-bottom: 9px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .history-round {
+      background: rgba(0,122,255,0.18); color: rgba(100,180,255,0.9);
+      border-radius: 6px; padding: 2px 8px; font-weight: 700;
+      border: 1px solid rgba(0,122,255,0.2);
+    }
+    .history-winners { display: flex; flex-direction: column; gap: 5px; }
+    .history-winner-item {
+      font-size: 12px; font-weight: 600; color: var(--text-sec);
+      display: flex; align-items: center; gap: 7px;
+    }
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    .dot-gold   { background: var(--gold);   box-shadow: 0 0 5px rgba(255,214,10,0.6); }
+    .dot-silver { background: var(--silver); box-shadow: 0 0 5px rgba(199,199,204,0.5); }
+    .dot-bronze { background: var(--bronze); box-shadow: 0 0 5px rgba(255,149,0,0.6); }
+
+    /* ── Clear history ── */
+    .clear-history-btn {
+      width: 100%; padding: 10px; margin-top: 10px;
+      background: rgba(255,59,48,0.08);
+      border: 1px solid rgba(255,59,48,0.2);
+      border-radius: var(--radius-sm);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px; font-weight: 600; color: rgba(255,100,90,0.8);
+      cursor: pointer; backdrop-filter: blur(8px);
+      transition: background 0.2s, color 0.2s;
+    }
+    .clear-history-btn:hover {
+      background: rgba(255,59,48,0.16); color: #FF6B6B;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 30px 12px;
+      color: var(--text-ter); font-size: 13px;
+    }
+    .empty-state .icon { font-size: 30px; margin-bottom: 10px; }
+
+    /* ── Confetti ── */
+    #confetti-canvas {
+      position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 767px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { letter-spacing: -1px; }
+    }
+  </style>
+</head>
+<body>
+<div id="wallpaper"></div>
+<canvas id="confetti-canvas"></canvas>
+
+<div class="wrapper">
+  <header>
+    <div class="ios-pill">🎯 GDG Event</div>
+    <h1>Doorprize Picker</h1>
+    <p class="subtitle">Randomly selecting 3 lucky winners from participants</p>
+    <div id="participants-count">Loading…</div>
+  </header>
+
+  <div class="grid">
+
+    <!-- Winners Panel -->
+    <div class="card">
+      <div class="card-title">🏆 Winners</div>
+
+      <div class="winner-slot" id="slot-1">
+        <div class="medal">1</div>
+        <div><div class="winner-placeholder" id="name-1">Awaiting draw…</div></div>
+      </div>
+
+      <div class="winner-slot" id="slot-2">
+        <div class="medal">2</div>
+        <div><div class="winner-placeholder" id="name-2">Awaiting draw…</div></div>
+      </div>
+
+      <div class="winner-slot" id="slot-3">
+        <div class="medal">3</div>
+        <div><div class="winner-placeholder" id="name-3">Awaiting draw…</div></div>
+      </div>
+
+      <button id="spin-btn" onclick="drawWinners()">
+        <span class="btn-shimmer"></span>
+        🎲 Draw Winners!
+      </button>
+      <button id="remove-winners-btn" onclick="removeWinnersFromList()" disabled>
+        ✂️ Remove Winners from Participants
+      </button>
+    </div>
+
+    <!-- Participants Panel -->
+    <div class="card">
+      <div class="card-title">👥 Participants <span id="count-badge" style="color:rgba(100,180,255,0.9);font-size:12px;margin-left:4px;"></span></div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-box" id="search-input" type="text" placeholder="Search name…" oninput="renderParticipants()" />
+      </div>
+      <div class="participants-list" id="participants-list"></div>
+    </div>
+
+    <!-- History Panel -->
+    <div class="card">
+      <div class="card-title">📜 Winner History</div>
+      <div class="history-list" id="history-list">
+        <div class="empty-state"><div class="icon">🕊️</div>No draws yet</div>
+      </div>
+      <button class="clear-history-btn" onclick="clearHistory()">🗑 Clear History</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────
+const NAMES_JSON = [
+  "Esmanur Da***","ufuk pı***","Mehmet ÖZ***","Mehmet Fı***","Musa KO***",
+  "Sudem ho***","Ahmet Do***","Emirhan Sö***","Müge Yı***","Elif Lü***",
+  "ercan gu***","Kerem Bü***","Yusuf Ay***","Gemini Ai","Hızır ÜN***",
+  "Sefer KU***","Eda Ub***","Umut DU***","ALİ UĞ***","Tayfun TE***",
+  "Koray ÖZ***","Nisa Bo***","Eren Kü***","Muhammet PE***","Emre Bnc",
+  "Ahmet Co***","Ebubekir AK***","Nur Gu***","Muzaffer AY***","Melisa AY***",
+  "Aylin AK***","serdar şA***","Neslihan YI***","Yasir KA***","Efe AS***",
+  "Erva Ba***","Oğuzhan KA***","Aynmable","ELIF KA***","Mehmet MU***",
+  "nazan şA***","Yusuf DE***","Yasir KA***","Faris ZA***","Muhammed ÖZ***",
+  "Sever ŞA***","Tarık DE***","Emre YÜ***","Yunus Emre TA***","Emine ER***",
+  "Oguzhan CA***","Ömer SÜ***","Wan HA***","hamza ÖZ***","Halil TO***",
+  "Aleyna MU***","Selcan","Egemen AL***","Salih YA***","Aliye HA***",
+  "Bora ko***","Lalu Khairan S","Adham Mnbrs","Gülcan MA***","Emirhan TE***",
+  "Ali ER***","Gizem ÖK***","Dogukaan BA***"
+];
+
+let participants = [...NAMES_JSON];
+let history = JSON.parse(localStorage.getItem('gdg_doorprize_history') || '[]');
+let round = history.length + 1;
+let isDrawing = false;
+let lastWinners = [];
+
+// ── Init ──────────────────────────────────────────────────────────────
+renderParticipants();
+renderHistory();
+updateCountBadge();
+
+function updateCountBadge() {
+  document.getElementById('participants-count').textContent = `${participants.length} participants remaining`;
+  document.getElementById('count-badge').textContent = `(${participants.length})`;
+}
+
+// ── Render participants ───────────────────────────────────────────────
+function renderParticipants() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const list = document.getElementById('participants-list');
+  const filtered = participants.filter(n => n.toLowerCase().includes(q));
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🔍</div>No names found</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map((name) => {
+    const realIdx = participants.indexOf(name);
+    return `
+      <div class="participant-item" id="pi-${realIdx}">
+        <span class="participant-name">${escHtml(name)}</span>
+        <button class="remove-btn" onclick="removeName(${realIdx})" title="Remove">✕</button>
+      </div>`;
+  }).join('');
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Remove name ───────────────────────────────────────────────────────
+function removeName(idx) {
+  const item = document.getElementById(`pi-${idx}`);
+  if (item) {
+    item.style.opacity = '0';
+    item.style.transform = 'translateX(30px)';
+    item.style.transition = 'all 0.28s ease';
+  }
+  setTimeout(() => {
+    participants.splice(idx, 1);
+    renderParticipants();
+    updateCountBadge();
+  }, 260);
+}
+
+// ── Draw Winners ──────────────────────────────────────────────────────
+function drawWinners() {
+  if (isDrawing) return;
+  if (participants.length < 3) {
+    shakeBtn();
+    alert(`Not enough participants! Need at least 3, currently have ${participants.length}.`);
+    return;
+  }
+
+  isDrawing = true;
+  const btn = document.getElementById('spin-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="btn-shimmer"></span>🎲 Drawing…';
+
+  // Reset slots
+  for (let i = 1; i <= 3; i++) {
+    const slot = document.getElementById(`slot-${i}`);
+    slot.classList.remove('revealed');
+    document.getElementById(`name-${i}`).className = 'winner-placeholder';
+    document.getElementById(`name-${i}`).textContent = '…';
+  }
+
+  // Pick 3 unique random indices
+  const pool = [...participants];
+  const pickedIdxs = [];
+  while (pickedIdxs.length < 3) {
+    const r = Math.floor(Math.random() * pool.length);
+    if (!pickedIdxs.includes(r)) pickedIdxs.push(r);
+  }
+  const winners = pickedIdxs.map(i => pool[i]);
+
+  // Animate each slot with rolling effect
+  winners.forEach((winner, wi) => {
+    const nameEl = document.getElementById(`name-${wi + 1}`);
+    const slotEl = document.getElementById(`slot-${wi + 1}`);
+
+    let tick = 0;
+    const totalTicks = 18 + wi * 10;
+    const interval = setInterval(() => {
+      const randName = participants[Math.floor(Math.random() * participants.length)];
+      nameEl.textContent = randName;
+      tick++;
+      if (tick >= totalTicks) {
+        clearInterval(interval);
+        setTimeout(() => {
+          nameEl.textContent = winner;
+          nameEl.className = 'winner-name';
+          slotEl.classList.add('revealed');
+          if (wi === 2) finalize(winners);
+        }, 100);
+      }
+    }, 80);
+  });
+}
+
+function finalize(winners) {
+  lastWinners = winners;
+  const entry = { round, time: new Date().toLocaleString(), winners };
+  history.unshift(entry);
+  localStorage.setItem('gdg_doorprize_history', JSON.stringify(history));
+  round++;
+
+  renderHistory();
+  launchConfetti();
+
+  const btn = document.getElementById('spin-btn');
+  btn.disabled = false;
+  btn.innerHTML = '<span class="btn-shimmer"></span>🎲 Draw Again!';
+  document.getElementById('remove-winners-btn').disabled = false;
+  isDrawing = false;
+}
+
+// ── Remove winners from pool ──────────────────────────────────────────
+function removeWinnersFromList() {
+  if (!lastWinners.length) return;
+  const btn = document.getElementById('remove-winners-btn');
+  btn.disabled = true;
+
+  let removed = 0;
+  lastWinners.forEach(winner => {
+    const idx = participants.indexOf(winner);
+    if (idx !== -1) { participants.splice(idx, 1); removed++; }
+  });
+
+  if (removed > 0) {
+    renderParticipants();
+    updateCountBadge();
+    btn.style.background = 'rgba(52,199,89,0.15)';
+    btn.style.borderColor = 'rgba(52,199,89,0.45)';
+    btn.style.color = '#30D158';
+    btn.textContent = `✅ Removed ${removed} winner${removed > 1 ? 's' : ''} from list`;
+    setTimeout(() => {
+      btn.style.background = '';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.textContent = '✂️ Remove Winners from Participants';
+    }, 2200);
+  }
+  lastWinners = [];
+}
+
+// ── Render History ────────────────────────────────────────────────────
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (history.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🕊️</div>No draws yet</div>';
+    return;
+  }
+
+  const medals = [
+    { dot: 'dot-gold',   emoji: '🥇' },
+    { dot: 'dot-silver', emoji: '🥈' },
+    { dot: 'dot-bronze', emoji: '🥉' },
+  ];
+
+  el.innerHTML = history.map(entry => `
+    <div class="history-entry">
+      <div class="history-meta">
+        <span class="history-round">Round ${entry.round}</span>
+        <span>${entry.time}</span>
+      </div>
+      <div class="history-winners">
+        ${entry.winners.map((w, i) => `
+          <div class="history-winner-item">
+            <span class="dot ${medals[i].dot}"></span>
+            ${medals[i].emoji} ${escHtml(w)}
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function clearHistory() {
+  if (!confirm('Clear all winner history?')) return;
+  history = [];
+  round = 1;
+  localStorage.removeItem('gdg_doorprize_history');
+  renderHistory();
+}
+
+// ── Shake button ──────────────────────────────────────────────────────
+function shakeBtn() {
+  const btn = document.getElementById('spin-btn');
+  btn.style.animation = 'shake 0.4s ease';
+  setTimeout(() => btn.style.animation = '', 400);
+}
+
+// ── Confetti ──────────────────────────────────────────────────────────
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#FFD60A','#AF52DE','#007AFF','#30D158','#FF9500','#FF375F','#5AC8FA','#fff'];
+  const pieces = Array.from({ length: 130 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * -canvas.height,
+    w: 6 + Math.random() * 8,
+    h: 10 + Math.random() * 7,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * 360,
+    vx: (Math.random() - 0.5) * 4,
+    vy: 2 + Math.random() * 5,
+    vr: (Math.random() - 0.5) * 8,
+    alpha: 1,
+  }));
+
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    pieces.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if (frame > 90) p.alpha = Math.max(0, p.alpha - 0.014);
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.translate(p.x, p.y);
+      ctx.rotate((p.rot * Math.PI) / 180);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+      if (p.alpha > 0) alive = true;
+    });
+    frame++;
+    if (alive) requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  draw();
+}
+
+window.addEventListener('resize', () => {
+  const c = document.getElementById('confetti-canvas');
+  c.width = window.innerWidth; c.height = window.innerHeight;
+});
+
+// Shake keyframe
+const s = document.createElement('style');
+s.textContent = `@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}`;
+document.head.appendChild(s);
+</script>
+</body>
+</html>
